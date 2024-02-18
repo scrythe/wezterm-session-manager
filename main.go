@@ -4,18 +4,47 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-type model struct {
-	items  []string
-	width  int
-	height int
+type Styles struct {
+	BorderColor lipgloss.Color
+	InputField  lipgloss.Style
 }
 
-func InitModel(items []string) *model {
-	return &model{items: items}
+func DefaultStyles() *Styles {
+	s := new(Styles)
+	s.BorderColor = lipgloss.Color("36")
+	s.InputField = lipgloss.
+		NewStyle().
+		BorderForeground(s.BorderColor).
+		BorderStyle(lipgloss.NormalBorder()).
+		// Padding(1).
+		Width(80)
+
+	return s
+}
+
+type model struct {
+	items       []string
+	searchField textinput.Model
+	styles      *Styles
+	width       int
+	height      int
+}
+
+func New(items []string) *model {
+	styles := DefaultStyles()
+	inputField := textinput.New()
+	inputField.Placeholder = "Search Project"
+	inputField.Focus()
+	return &model{
+		items:       items,
+		searchField: inputField,
+		styles:      styles,
+	}
 }
 
 func (m model) Init() tea.Cmd {
@@ -23,6 +52,7 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -34,8 +64,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	}
-
-	return m, nil
+	m.searchField, cmd = m.searchField.Update(msg)
+	return m, cmd
 }
 
 func (m model) View() string {
@@ -48,13 +78,17 @@ func (m model) View() string {
 		m.height,
 		lipgloss.Center,
 		lipgloss.Center,
-		m.items[0],
+		lipgloss.JoinVertical(
+			0.05,
+			m.styles.InputField.Render(m.searchField.View()),
+			lipgloss.JoinVertical(lipgloss.Left, m.items...),
+		),
 	)
 }
 
 func main() {
-	items := []string{"test1", "test2"}
-	m := InitModel(items)
+	items := []string{"test1", "test2loool"}
+	m := New(items)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("There is an error: %v", err)
