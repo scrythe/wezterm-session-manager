@@ -9,41 +9,54 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-type Styles struct {
+type searchFieldStyle struct {
 	BorderColor lipgloss.Color
 	InputField  lipgloss.Style
 }
 
-func DefaultStyles() *Styles {
-	s := new(Styles)
+type highlightStyle struct {
+	TextColor lipgloss.Color
+	TextField lipgloss.Style
+}
+
+func DefaultStyles() (*searchFieldStyle, *highlightStyle) {
+	s := new(searchFieldStyle)
+	t := new(highlightStyle)
 	s.BorderColor = lipgloss.Color("36")
+	t.TextColor = lipgloss.Color("32")
+
 	s.InputField = lipgloss.
 		NewStyle().
 		BorderForeground(s.BorderColor).
 		BorderStyle(lipgloss.NormalBorder()).
 		// Padding(1).
-		Width(80)
+		Width(80).
+		Foreground(t.TextColor)
+	t.TextField = lipgloss.NewStyle().
+		Foreground(s.BorderColor)
 
-	return s
+	return s, t
 }
 
 type model struct {
-	items       []string
-	searchField textinput.Model
-	styles      *Styles
-	width       int
-	height      int
+	items            []string
+	searchField      textinput.Model
+	searchFieldStyle *searchFieldStyle
+	highlightStyle   *highlightStyle
+	width            int
+	height           int
 }
 
 func New(items []string) *model {
-	styles := DefaultStyles()
+	searchFieldStyle, highlightStyle := DefaultStyles()
 	inputField := textinput.New()
 	inputField.Placeholder = "Search Project"
 	inputField.Focus()
 	return &model{
-		items:       items,
-		searchField: inputField,
-		styles:      styles,
+		items:            items,
+		searchField:      inputField,
+		searchFieldStyle: searchFieldStyle,
+		highlightStyle:   highlightStyle,
 	}
 }
 
@@ -80,13 +93,14 @@ func (m model) View() string {
 		lipgloss.Center,
 		lipgloss.JoinVertical(
 			0.05,
-			m.styles.InputField.Render(m.searchField.View()),
-			lipgloss.JoinVertical(lipgloss.Left, m.items...),
+			m.searchFieldStyle.InputField.Render(m.searchField.View()),
+			m.highlightStyle.TextField.Render(lipgloss.JoinVertical(lipgloss.Left, m.items...)),
 		),
 	)
 }
 
 func main() {
+	fuzzyTest()
 	items := []string{"test1", "test2loool"}
 	m := New(items)
 	p := tea.NewProgram(m, tea.WithAltScreen())
