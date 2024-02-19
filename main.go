@@ -108,7 +108,8 @@ func (m model) View() string {
 }
 
 func main() {
-	fuzzyTest()
+	fuzzyFind()
+	listFolders()
 	items := []string{"test1", "test2loool"}
 	m := New(items)
 	p := tea.NewProgram(m, tea.WithAltScreen())
