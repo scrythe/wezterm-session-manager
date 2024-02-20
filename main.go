@@ -7,29 +7,24 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/sahilm/fuzzy"
 )
 
 type Styles struct {
-	BorderColor       lipgloss.Color
-	TextColor         lipgloss.Color
-	TextHiglightColor lipgloss.Color
+	BorderColor        lipgloss.Color
+	TextColor          lipgloss.Color
+	HighlightTextColor lipgloss.Color
 
-	InputField lipgloss.Style
-	TextField  lipgloss.Style
-}
-
-func (s Styles) Highlight(text string) string {
-	s.TextField.Foreground(s.TextHiglightColor)
-	highLightText := s.TextField.Render(text)
-	s.TextField.Foreground(s.TextColor)
-	return highLightText
+	InputField         lipgloss.Style
+	TextField          lipgloss.Style
+	HighlightTextField lipgloss.Style
 }
 
 func DefaultStyles() *Styles {
 	s := new(Styles)
 	s.BorderColor = lipgloss.Color("36")
 	s.TextColor = lipgloss.Color("32")
-	s.TextHiglightColor = lipgloss.Color("36")
+	s.HighlightTextColor = lipgloss.Color("36")
 
 	s.InputField = lipgloss.
 		NewStyle().
@@ -39,16 +34,50 @@ func DefaultStyles() *Styles {
 		Foreground(s.TextColor)
 	s.TextField = lipgloss.NewStyle().
 		Foreground(s.TextColor)
+	s.HighlightTextField = lipgloss.NewStyle().
+		Foreground(s.HighlightTextColor)
 
 	return s
 }
 
+type filterItem struct {
+	value   string
+	matches []int
+}
+
 type model struct {
-	items       []string
-	searchField textinput.Model
-	styles      *Styles
-	width       int
-	height      int
+	items            []string
+	filteredItems    []filterItem
+	searchField      textinput.Model
+	searchFieldValue string
+	styles           *Styles
+	width            int
+	height           int
+}
+
+func (m *model) FuzzyFind(searchFieldValue string) {
+	matches := fuzzy.Find(searchFieldValue, m.items)
+	filteredItems := make([]filterItem, len(matches))
+	for i, item := range matches {
+		filteredItems[i] = filterItem{
+			value:   item.Str,
+			matches: item.MatchedIndexes,
+		}
+	}
+	m.filteredItems = filteredItems
+}
+
+func (m model) StyleText() []string {
+	styledItems := make([]string, len(m.filteredItems))
+	for i, item := range m.filteredItems {
+		styledItems[i] = lipgloss.StyleRunes(
+			item.value,
+			item.matches,
+			m.styles.HighlightTextField,
+			m.styles.TextField,
+		)
+	}
+	return styledItems
 }
 
 func New(items []string) *model {
@@ -81,6 +110,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	m.searchField, cmd = m.searchField.Update(msg)
+	searchFieldValue := m.searchField.Value()
+	if m.searchFieldValue != searchFieldValue {
+		m.searchFieldValue = searchFieldValue
+		m.FuzzyFind(searchFieldValue)
+	}
 	return m, cmd
 }
 
@@ -88,7 +122,7 @@ func (m model) View() string {
 	if m.width == 0 {
 		return "loading.."
 	}
-	m.items = append(m.items, m.styles.Highlight("testhghmmm"))
+
 	return lipgloss.Place(
 		m.width,
 		m.height,
@@ -97,21 +131,17 @@ func (m model) View() string {
 		lipgloss.JoinVertical(
 			0.05,
 			m.styles.InputField.Render(m.searchField.View()),
-			m.styles.TextField.Render(
-				lipgloss.JoinVertical(
-					lipgloss.Left,
-					m.items...,
-				),
+			lipgloss.JoinVertical(
+				lipgloss.Left,
+				m.StyleText()...,
 			),
 		),
 	)
 }
 
 func main() {
-	fuzzyFind()
-	listFolders()
-	items := []string{"test1", "test2loool"}
-	m := New(items)
+	folders := listFolders()
+	m := New(folders)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("There is an error: %v", err)
