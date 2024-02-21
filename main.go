@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 
@@ -65,12 +66,8 @@ func getFullList(items []string) []filterItem {
 	return newItems
 }
 
-func fuzzyFind(pattern string, items []string) []filterItem {
-	matches := fuzzy.Find(pattern, items)
-
-	if len(matches) == 0 {
-		return nil
-	}
+func getFilteredItems(input string, items []string) []filterItem {
+	matches := fuzzy.Find(input, items)
 
 	filteredItems := make([]filterItem, len(matches))
 	for i, item := range matches {
@@ -78,14 +75,6 @@ func fuzzyFind(pattern string, items []string) []filterItem {
 			value:   item.Str,
 			matches: item.MatchedIndexes,
 		}
-	}
-	return filteredItems
-}
-
-func getFilteredItems(pattern string, items []string) []filterItem {
-	filteredItems := fuzzyFind(pattern, items)
-	if filteredItems == nil {
-		return getFullList(items)
 	}
 	return filteredItems
 }
@@ -151,12 +140,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	m.searchField, cmd = m.searchField.Update(msg)
-	searchFieldValue := m.searchField.Value()
-	if m.searchFieldValue != searchFieldValue {
-		m.searchFieldValue = searchFieldValue
-		m.filteredItems = getFilteredItems(searchFieldValue, m.items)
-	}
+	m.UpdateSearch()
 	return m, cmd
+}
+
+func (m *model) UpdateSearch() {
+	input := m.searchField.Value()
+	if m.searchFieldValue != input {
+		m.searchFieldValue = input
+		m.filteredItems = getFilteredItems(input, m.items)
+	}
 }
 
 func (m model) View() string {
@@ -172,6 +165,7 @@ func (m model) View() string {
 	// 			m.styles.InputField.Render(m.searchField.View())
 	//       )
 	// (m.RenderText())
+	// text:=getText()
 	return lipgloss.JoinVertical(
 		0.05,
 		m.styles.InputField.Render(m.searchField.View()),
@@ -184,11 +178,17 @@ func (m model) View() string {
 }
 
 func main() {
+	f, err := tea.LogToFile("debug.log", "debug")
+	if err != nil {
+		log.Fatalf("fatal: %v", err)
+		os.Exit(1)
+	}
 	folders := listFolders()
 	m := New(folders)
 	p := tea.NewProgram(m, tea.WithAltScreen())
+	defer f.Close()
 	if _, err := p.Run(); err != nil {
-		fmt.Printf("There is an error: %v", err)
+		log.Fatalf("There is an error: %v", err)
 		os.Exit(1)
 	}
 }
