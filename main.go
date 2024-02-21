@@ -57,7 +57,7 @@ type model struct {
 	height           int
 }
 
-func fullList(items []string) []filterItem {
+func getFullList(items []string) []filterItem {
 	newItems := make([]filterItem, len(items))
 	for i, item := range items {
 		newItems[i] = filterItem{value: item}
@@ -65,12 +65,11 @@ func fullList(items []string) []filterItem {
 	return newItems
 }
 
-func (m *model) FuzzyFind(searchFieldValue string) {
-	matches := fuzzy.Find(searchFieldValue, m.items)
+func fuzzyFind(pattern string, items []string) []filterItem {
+	matches := fuzzy.Find(pattern, items)
 
 	if len(matches) == 0 {
-		m.filteredItems = fullList(m.items)
-		return
+		return nil
 	}
 
 	filteredItems := make([]filterItem, len(matches))
@@ -80,7 +79,15 @@ func (m *model) FuzzyFind(searchFieldValue string) {
 			matches: item.MatchedIndexes,
 		}
 	}
-	m.filteredItems = filteredItems
+	return filteredItems
+}
+
+func getFilteredItems(pattern string, items []string) []filterItem {
+	filteredItems := fuzzyFind(pattern, items)
+	if filteredItems == nil {
+		return getFullList(items)
+	}
+	return filteredItems
 }
 
 func (m model) StyleText() []string {
@@ -96,7 +103,7 @@ func (m model) StyleText() []string {
 	return styledItems
 }
 
-func styleText(w io.Writer, item filterItem, m model) {
+func styleText(w io.Writer, m model, item filterItem) {
 	newItem := lipgloss.StyleRunes(
 		item.value,
 		item.matches,
@@ -109,7 +116,7 @@ func styleText(w io.Writer, item filterItem, m model) {
 func (m model) RenderText() string {
 	var b strings.Builder
 	for _, item := range m.filteredItems {
-		styleText(&b, item, m)
+		styleText(&b, m, item)
 	}
 	return b.String()
 }
@@ -147,7 +154,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	searchFieldValue := m.searchField.Value()
 	if m.searchFieldValue != searchFieldValue {
 		m.searchFieldValue = searchFieldValue
-		m.FuzzyFind(searchFieldValue)
+		m.filteredItems = getFilteredItems(searchFieldValue, m.items)
 	}
 	return m, cmd
 }
