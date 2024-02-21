@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -55,8 +57,22 @@ type model struct {
 	height           int
 }
 
+func fullList(items []string) []filterItem {
+	newItems := make([]filterItem, len(items))
+	for i, item := range items {
+		newItems[i] = filterItem{value: item}
+	}
+	return newItems
+}
+
 func (m *model) FuzzyFind(searchFieldValue string) {
 	matches := fuzzy.Find(searchFieldValue, m.items)
+
+	if len(matches) == 0 {
+		m.filteredItems = fullList(m.items)
+		return
+	}
+
 	filteredItems := make([]filterItem, len(matches))
 	for i, item := range matches {
 		filteredItems[i] = filterItem{
@@ -78,6 +94,24 @@ func (m model) StyleText() []string {
 		)
 	}
 	return styledItems
+}
+
+func styleText(w io.Writer, item filterItem, m model) {
+	newItem := lipgloss.StyleRunes(
+		item.value,
+		item.matches,
+		m.styles.HighlightTextField,
+		m.styles.TextField,
+	)
+	fmt.Fprintf(w, "%s\n", newItem)
+}
+
+func (m model) RenderText() string {
+	var b strings.Builder
+	for _, item := range m.filteredItems {
+		styleText(&b, item, m)
+	}
+	return b.String()
 }
 
 func New(items []string) *model {
@@ -122,20 +156,23 @@ func (m model) View() string {
 	if m.width == 0 {
 		return "loading.."
 	}
-
-	return lipgloss.Place(
-		m.width,
-		m.height,
-		lipgloss.Center,
-		lipgloss.Center,
-		lipgloss.JoinVertical(
-			0.05,
-			m.styles.InputField.Render(m.searchField.View()),
-			lipgloss.JoinVertical(
-				lipgloss.Left,
-				m.StyleText()...,
-			),
-		),
+	// lipgloss.Place(
+	// 		m.width,
+	// 		m.height,
+	// 		lipgloss.Center,
+	// 		lipgloss.Top,
+	//
+	// 			m.styles.InputField.Render(m.searchField.View())
+	//       )
+	// (m.RenderText())
+	return lipgloss.JoinVertical(
+		0.05,
+		m.styles.InputField.Render(m.searchField.View()),
+		m.RenderText(),
+		// lipgloss.JoinVertical(
+		// 	lipgloss.Left,
+		// 	m.StyleText()...,
+		// ),
 	)
 }
 
