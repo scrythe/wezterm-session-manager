@@ -1,10 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -17,12 +15,12 @@ type Styles struct {
 	InputTextColor lipgloss.Color
 	TextColor      lipgloss.Color
 	HighlightColor lipgloss.Color
-	// SelectedColor  lipgloss.Color
+	SelectedColor  lipgloss.Color
 
 	InputField         lipgloss.Style
 	TextField          lipgloss.Style
 	HighlightTextField lipgloss.Style
-	// SelectedField      lipgloss.Style
+	SelectedField      lipgloss.Style
 }
 
 func DefaultStyles() *Styles {
@@ -31,7 +29,7 @@ func DefaultStyles() *Styles {
 	s.InputTextColor = lipgloss.Color("7")
 	s.TextColor = lipgloss.Color("#2daecf")
 	s.HighlightColor = lipgloss.Color("#00af87")
-	// s.SelectedColor = lipgloss.Color("34")
+	s.SelectedColor = lipgloss.Color("#FFFFFF")
 
 	s.InputField = lipgloss.
 		NewStyle().
@@ -43,8 +41,8 @@ func DefaultStyles() *Styles {
 		Foreground(s.TextColor)
 	s.HighlightTextField = lipgloss.NewStyle().
 		Foreground(s.HighlightColor).Underline(true)
-	// s.SelectedField = lipgloss.NewStyle().
-	// 	Background(s.SelectedColor)
+	s.SelectedField = lipgloss.NewStyle().
+		Background(s.SelectedColor)
 
 	return s
 }
@@ -60,7 +58,7 @@ type model struct {
 	searchField      textinput.Model
 	searchFieldValue string
 	styles           *Styles
-	// cursor           int
+	cursor           int
 	width            int
 	height           int
 }
@@ -86,35 +84,32 @@ func getFilteredItems(input string, items []string) []filterItem {
 	return filteredItems
 }
 
-func (m model) styleItem(item filterItem) string {
+func (m model) styleItem(item filterItem, selected bool) string {
+	var textStyle lipgloss.Style
+	var highlightedTextStyle lipgloss.Style
+	if selected {
+		textStyle = m.styles.SelectedField.Copy().Inherit(m.styles.TextField)
+		highlightedTextStyle = m.styles.SelectedField.Copy().Inherit(m.styles.HighlightTextField)
+	} else {
+		textStyle = m.styles.TextField
+		highlightedTextStyle = m.styles.HighlightTextField
+	}
 	newItem := lipgloss.StyleRunes(
 		item.value,
 		item.matches,
-		m.styles.HighlightTextField,
-		m.styles.TextField,
+		highlightedTextStyle,
+		textStyle,
 	)
-	// if !selected {
-	// 	return m.styles.SelectedField.Render(newItem)
-	// }
 	return newItem
 }
 
 func (m model) StyleText() []string {
 	styledItems := make([]string, len(m.filteredItems))
 	for i, item := range m.filteredItems {
-		// selected := i == m.cursor
-		styledItems[i] = m.styleItem(item)
+		selected := i == m.cursor
+		styledItems[i] = m.styleItem(item, selected)
 	}
 	return styledItems
-}
-
-func (m model) joinList() string {
-	var b strings.Builder
-	styledList := m.StyleText()
-	for _, item := range styledList {
-		fmt.Fprintf(&b, "%v\n", item)
-	}
-	return b.String()
 }
 
 func New(items []string) *model {
@@ -133,6 +128,21 @@ func (m model) Init() tea.Cmd {
 	return nil
 }
 
+func (m *model) CursorDown() {
+	m.cursor++
+	itemsLength := len(m.filteredItems)
+	if m.cursor >= itemsLength {
+		m.cursor = itemsLength - 1
+	}
+}
+
+func (m *model) CursorUp() {
+	m.cursor--
+	if m.cursor < 0 {
+		m.cursor = 0
+	}
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
@@ -144,6 +154,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
+		case "ctrl+j", "ctrl+n":
+			m.CursorDown()
+		case "ctrl+k", "ctrl+p":
+			m.CursorUp()
 		}
 	}
 	m.searchField, cmd = m.searchField.Update(msg)
@@ -156,6 +170,12 @@ func (m *model) UpdateSearch() {
 	if m.searchFieldValue != input {
 		m.searchFieldValue = input
 		m.filteredItems = getFilteredItems(input, m.items)
+		itemsLength := len(m.filteredItems)
+		if m.cursor >= itemsLength {
+			m.cursor = itemsLength - 1
+		} else if m.cursor < 0 {
+			m.cursor = 0
+		}
 	}
 }
 
@@ -163,23 +183,18 @@ func (m model) View() string {
 	if m.width == 0 {
 		return "loading.."
 	}
-	// lipgloss.Place(
-	// 		m.width,
-	// 		m.height,
-	// 		lipgloss.Center,
-	// 		lipgloss.Top,
-	//
-	// 			m.styles.InputField.Render(m.searchField.View())
-	//       )
-	// (m.RenderText())
-	// text:=getText()
-	return lipgloss.JoinVertical(
-		0.05,
-		m.styles.InputField.Render(m.searchField.View()),
-		// m.joinList(),
+	return lipgloss.Place(
+		m.width,
+		m.height,
+		lipgloss.Center,
+		lipgloss.Top,
 		lipgloss.JoinVertical(
-			lipgloss.Left,
-			m.StyleText()...,
+			0.05,
+			m.styles.InputField.Render(m.searchField.View()),
+			lipgloss.JoinVertical(
+				lipgloss.Left,
+				m.StyleText()...,
+			),
 		),
 	)
 }
