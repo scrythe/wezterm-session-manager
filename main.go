@@ -165,17 +165,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+func (m *model) CheckCursor() {
+	itemsLength := len(m.filteredItems)
+	if m.cursor >= itemsLength {
+		m.cursor = itemsLength - 1
+	} else if m.cursor < 0 {
+		m.cursor = 0
+	}
+}
+
 func (m *model) UpdateSearch() {
 	input := m.searchField.Value()
-	if m.searchFieldValue != input {
+	if input == "" {
+		m.filteredItems = getFullList(m.items)
+    m.CheckCursor()
+	} else if m.searchFieldValue != input {
 		m.searchFieldValue = input
 		m.filteredItems = getFilteredItems(input, m.items)
-		itemsLength := len(m.filteredItems)
-		if m.cursor >= itemsLength {
-			m.cursor = itemsLength - 1
-		} else if m.cursor < 0 {
-			m.cursor = 0
-		}
+    m.CheckCursor()
 	}
 }
 
