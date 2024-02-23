@@ -20,3 +20,6 @@ wezterm-session-manager
 
 # Go workspace file
 go.work
+
+# debug
+debug.log

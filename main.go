@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"strings"
@@ -14,31 +13,38 @@ import (
 )
 
 type Styles struct {
-	BorderColor        lipgloss.Color
-	TextColor          lipgloss.Color
-	HighlightTextColor lipgloss.Color
+	BorderColor    lipgloss.Color
+	InputTextColor lipgloss.Color
+	TextColor      lipgloss.Color
+	HighlightColor lipgloss.Color
+	// SelectedColor  lipgloss.Color
 
 	InputField         lipgloss.Style
 	TextField          lipgloss.Style
 	HighlightTextField lipgloss.Style
+	// SelectedField      lipgloss.Style
 }
 
 func DefaultStyles() *Styles {
 	s := new(Styles)
 	s.BorderColor = lipgloss.Color("36")
-	s.TextColor = lipgloss.Color("32")
-	s.HighlightTextColor = lipgloss.Color("36")
+	s.InputTextColor = lipgloss.Color("7")
+	s.TextColor = lipgloss.Color("#2daecf")
+	s.HighlightColor = lipgloss.Color("#00af87")
+	// s.SelectedColor = lipgloss.Color("34")
 
 	s.InputField = lipgloss.
 		NewStyle().
 		BorderForeground(s.BorderColor).
 		BorderStyle(lipgloss.NormalBorder()).
 		Width(80).
-		Foreground(s.TextColor)
+		Foreground(s.InputTextColor)
 	s.TextField = lipgloss.NewStyle().
 		Foreground(s.TextColor)
 	s.HighlightTextField = lipgloss.NewStyle().
-		Foreground(s.HighlightTextColor)
+		Foreground(s.HighlightColor).Underline(true)
+	// s.SelectedField = lipgloss.NewStyle().
+	// 	Background(s.SelectedColor)
 
 	return s
 }
@@ -54,6 +60,7 @@ type model struct {
 	searchField      textinput.Model
 	searchFieldValue string
 	styles           *Styles
+	// cursor           int
 	width            int
 	height           int
 }
@@ -79,33 +86,33 @@ func getFilteredItems(input string, items []string) []filterItem {
 	return filteredItems
 }
 
-func (m model) StyleText() []string {
-	styledItems := make([]string, len(m.filteredItems))
-	for i, item := range m.filteredItems {
-		styledItems[i] = lipgloss.StyleRunes(
-			item.value,
-			item.matches,
-			m.styles.HighlightTextField,
-			m.styles.TextField,
-		)
-	}
-	return styledItems
-}
-
-func styleText(w io.Writer, m model, item filterItem) {
+func (m model) styleItem(item filterItem) string {
 	newItem := lipgloss.StyleRunes(
 		item.value,
 		item.matches,
 		m.styles.HighlightTextField,
 		m.styles.TextField,
 	)
-	fmt.Fprintf(w, "%s\n", newItem)
+	// if !selected {
+	// 	return m.styles.SelectedField.Render(newItem)
+	// }
+	return newItem
 }
 
-func (m model) RenderText() string {
+func (m model) StyleText() []string {
+	styledItems := make([]string, len(m.filteredItems))
+	for i, item := range m.filteredItems {
+		// selected := i == m.cursor
+		styledItems[i] = m.styleItem(item)
+	}
+	return styledItems
+}
+
+func (m model) joinList() string {
 	var b strings.Builder
-	for _, item := range m.filteredItems {
-		styleText(&b, m, item)
+	styledList := m.StyleText()
+	for _, item := range styledList {
+		fmt.Fprintf(&b, "%v\n", item)
 	}
 	return b.String()
 }
@@ -169,11 +176,11 @@ func (m model) View() string {
 	return lipgloss.JoinVertical(
 		0.05,
 		m.styles.InputField.Render(m.searchField.View()),
-		m.RenderText(),
-		// lipgloss.JoinVertical(
-		// 	lipgloss.Left,
-		// 	m.StyleText()...,
-		// ),
+		// m.joinList(),
+		lipgloss.JoinVertical(
+			lipgloss.Left,
+			m.StyleText()...,
+		),
 	)
 }
 
