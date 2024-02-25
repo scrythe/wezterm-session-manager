@@ -55,6 +55,7 @@ type filterItem struct {
 type model struct {
 	items            []string
 	filteredItems    []filterItem
+	displayItems     []filterItem
 	searchField      textinput.Model
 	searchFieldValue string
 	styles           *Styles
@@ -84,6 +85,17 @@ func getFilteredItems(input string, items []string) []filterItem {
 	return filteredItems
 }
 
+func (m model) getDisplayItems(items []filterItem, length int) []filterItem {
+	displayItems := make([]filterItem, length)
+	for i, item := range items {
+		if i >= length {
+			break
+		}
+		displayItems[i] = item
+	}
+  return displayItems
+}
+
 func (m model) styleItem(item filterItem, selected bool) string {
 	var textStyle lipgloss.Style
 	var highlightedTextStyle lipgloss.Style
@@ -104,8 +116,8 @@ func (m model) styleItem(item filterItem, selected bool) string {
 }
 
 func (m model) StyleText() []string {
-	styledItems := make([]string, len(m.filteredItems))
-	for i, item := range m.filteredItems {
+	styledItems := make([]string, len(m.displayItems))
+	for i, item := range m.displayItems {
 		selected := i == m.cursor
 		styledItems[i] = m.styleItem(item, selected)
 	}
@@ -178,11 +190,13 @@ func (m *model) UpdateSearch() {
 	input := m.searchField.Value()
 	if input == "" {
 		m.filteredItems = getFullList(m.items)
-    m.CheckCursor()
+		m.displayItems = m.getDisplayItems(m.filteredItems,44)
+		m.CheckCursor()
 	} else if m.searchFieldValue != input {
 		m.searchFieldValue = input
 		m.filteredItems = getFilteredItems(input, m.items)
-    m.CheckCursor()
+		m.displayItems = m.getDisplayItems(m.filteredItems,44)
+		m.CheckCursor()
 	}
 }
 
