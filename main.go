@@ -55,11 +55,12 @@ type filterItem struct {
 type model struct {
 	items            []string
 	filteredItems    []filterItem
-	displayItems     []filterItem
 	searchField      textinput.Model
 	searchFieldValue string
 	styles           *Styles
 	cursor           int
+	startItem        int
+	listLength       int
 	width            int
 	height           int
 }
@@ -85,15 +86,9 @@ func getFilteredItems(input string, items []string) []filterItem {
 	return filteredItems
 }
 
-func (m model) getDisplayItems(items []filterItem, length int) []filterItem {
-	displayItems := make([]filterItem, length)
-	for i, item := range items {
-		if i >= length {
-			break
-		}
-		displayItems[i] = item
-	}
-  return displayItems
+func (m model) getDisplayItems(items []filterItem, start, length int) []filterItem {
+	displayItems := items[start : start+length]
+	return displayItems
 }
 
 func (m model) styleItem(item filterItem, selected bool) string {
@@ -115,13 +110,24 @@ func (m model) styleItem(item filterItem, selected bool) string {
 	return newItem
 }
 
-func (m model) StyleText() []string {
-	styledItems := make([]string, len(m.displayItems))
-	for i, item := range m.displayItems {
-		selected := i == m.cursor
+func (m model) StyleText(items []filterItem) []string {
+	styledItems := make([]string, len(items))
+	for i, item := range items {
+		selected := i == m.cursor-m.startItem
 		styledItems[i] = m.styleItem(item, selected)
 	}
 	return styledItems
+}
+
+func (m model) StyleList() string {
+	listEnd := min(len(m.filteredItems), m.startItem+m.listLength)
+	displayItems := m.filteredItems[m.startItem:listEnd]
+	// log.Print(displayItems)
+	styleItems := m.StyleText(displayItems)
+	return lipgloss.JoinVertical(
+		lipgloss.Left,
+		styleItems...,
+	)
 }
 
 func New(items []string) *model {
@@ -131,6 +137,7 @@ func New(items []string) *model {
 	inputField.Focus()
 	return &model{
 		items:       items,
+		listLength:  42,
 		searchField: inputField,
 		styles:      styles,
 	}
@@ -146,12 +153,18 @@ func (m *model) CursorDown() {
 	if m.cursor >= itemsLength {
 		m.cursor = itemsLength - 1
 	}
+	if m.cursor >= m.startItem+m.listLength {
+		m.startItem++
+	}
 }
 
 func (m *model) CursorUp() {
 	m.cursor--
 	if m.cursor < 0 {
 		m.cursor = 0
+	}
+	if m.cursor < m.startItem {
+		m.startItem--
 	}
 }
 
@@ -190,12 +203,10 @@ func (m *model) UpdateSearch() {
 	input := m.searchField.Value()
 	if input == "" {
 		m.filteredItems = getFullList(m.items)
-		m.displayItems = m.getDisplayItems(m.filteredItems,44)
 		m.CheckCursor()
 	} else if m.searchFieldValue != input {
 		m.searchFieldValue = input
 		m.filteredItems = getFilteredItems(input, m.items)
-		m.displayItems = m.getDisplayItems(m.filteredItems,44)
 		m.CheckCursor()
 	}
 }
@@ -212,10 +223,7 @@ func (m model) View() string {
 		lipgloss.JoinVertical(
 			0.05,
 			m.styles.InputField.Render(m.searchField.View()),
-			lipgloss.JoinVertical(
-				lipgloss.Left,
-				m.StyleText()...,
-			),
+			m.StyleList(),
 		),
 	)
 }
