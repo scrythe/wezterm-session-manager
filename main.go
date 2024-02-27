@@ -195,7 +195,15 @@ func (m *model) CheckCursor() {
 	if m.cursor >= itemsLength {
 		m.cursor = itemsLength - 1
 	} else if m.cursor < 0 {
+		// list length 0 -> cursor -1
 		m.cursor = 0
+	}
+}
+
+func (m *model) CheckStartItem() {
+	itemsLength := len(m.filteredItems)
+	if m.startItem+m.listLength > itemsLength {
+		m.startItem = 0
 	}
 }
 
@@ -203,12 +211,12 @@ func (m *model) UpdateSearch() {
 	input := m.searchField.Value()
 	if input == "" {
 		m.filteredItems = getFullList(m.items)
-		m.CheckCursor()
 	} else if m.searchFieldValue != input {
-		m.searchFieldValue = input
 		m.filteredItems = getFilteredItems(input, m.items)
-		m.CheckCursor()
 	}
+	m.CheckCursor()
+  m.CheckStartItem()
+	m.searchFieldValue = input
 }
 
 func (m model) View() string {
