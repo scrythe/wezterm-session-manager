@@ -250,4 +250,5 @@ func main() {
 		log.Fatalf("There is an error: %v", err)
 		os.Exit(1)
 	}
+  listWorkspaces()
 }
