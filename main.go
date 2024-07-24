@@ -15,11 +15,13 @@ type Styles struct {
 	InputTextColor lipgloss.Color
 	TextColor      lipgloss.Color
 	HighlightColor lipgloss.Color
+	WorkspaceColor lipgloss.Color
 	SelectedColor  lipgloss.Color
 
 	InputField         lipgloss.Style
 	TextField          lipgloss.Style
 	HighlightTextField lipgloss.Style
+	WorkspaceField     lipgloss.Style
 	SelectedField      lipgloss.Style
 }
 
@@ -29,6 +31,7 @@ func DefaultStyles() *Styles {
 	s.InputTextColor = lipgloss.Color("7")
 	s.TextColor = lipgloss.Color("#2daecf")
 	s.HighlightColor = lipgloss.Color("#00af87")
+	s.WorkspaceColor = lipgloss.Color("#7d4545")
 	s.SelectedColor = lipgloss.Color("#FFFFFF")
 
 	s.InputField = lipgloss.
@@ -41,6 +44,8 @@ func DefaultStyles() *Styles {
 		Foreground(s.TextColor)
 	s.HighlightTextField = lipgloss.NewStyle().
 		Foreground(s.HighlightColor).Underline(true)
+	s.WorkspaceField = lipgloss.NewStyle().
+		Background(s.WorkspaceColor)
 	s.SelectedField = lipgloss.NewStyle().
 		Background(s.SelectedColor)
 
@@ -48,8 +53,9 @@ func DefaultStyles() *Styles {
 }
 
 type filterItem struct {
-	value   string
-	matches []int
+	value     string
+	matches   []int
+	workspace bool
 }
 
 type model struct {
@@ -95,12 +101,13 @@ func (m model) styleItem(item filterItem, selected bool) string {
 	var textStyle lipgloss.Style
 	var highlightedTextStyle lipgloss.Style
 	if selected {
-		textStyle = m.styles.SelectedField.Copy().Inherit(m.styles.TextField)
-		highlightedTextStyle = m.styles.SelectedField.Copy().Inherit(m.styles.HighlightTextField)
+		textStyle = m.styles.WorkspaceField.Copy().Inherit(m.styles.TextField)
+		highlightedTextStyle = m.styles.WorkspaceField.Copy().Inherit(m.styles.HighlightTextField)
 	} else {
 		textStyle = m.styles.TextField
 		highlightedTextStyle = m.styles.HighlightTextField
 	}
+
 	newItem := lipgloss.StyleRunes(
 		item.value,
 		item.matches,
@@ -215,7 +222,7 @@ func (m *model) UpdateSearch() {
 		m.filteredItems = getFilteredItems(input, m.items)
 	}
 	m.CheckCursor()
-  m.CheckStartItem()
+	m.CheckStartItem()
 	m.searchFieldValue = input
 }
 
@@ -242,7 +249,7 @@ func main() {
 		log.Fatalf("fatal: %v", err)
 		os.Exit(1)
 	}
-	folders := listFolders()
+	folders := listAll()
 	m := New(folders)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	defer f.Close()
@@ -250,5 +257,4 @@ func main() {
 		log.Fatalf("There is an error: %v", err)
 		os.Exit(1)
 	}
-  listWorkspaces()
 }

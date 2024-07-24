@@ -60,3 +60,18 @@ func listWorkspaces() []string {
 	}
 	return workspaces
 }
+
+func listAll() []string {
+	workspaces := listWorkspaces()
+	workspaceLen := len(workspaces)
+	folders := listFolders()
+	all := make([]string, len(workspaces)+len(folders))
+	for i := 0; i < len(all); i++ {
+		if i < workspaceLen {
+			all[i] = workspaces[i]
+			continue
+		}
+		all[i] = folders[i-workspaceLen]
+	}
+	return all
+}
